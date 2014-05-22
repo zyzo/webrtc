@@ -18,14 +18,61 @@ import webapp2
 import threading
 from google.appengine.api import channel
 from google.appengine.ext import db
+from google.appengine.api import memcache
 
 jinja_environment = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__)))
 
-# Lock for syncing DB operation in concurrent requests handling.
-# TODO(brave): keeping working on improving performance with thread syncing.
-# One possible method for near future is to reduce the message caching.
-LOCK = threading.RLock()
+class MsgQueue:
+  def __init__(self, qid):
+    self.qid = qid
+  def get(self):
+    messages = []
+    written = False
+    while not written:
+      # read rpos, wpos, and compute range
+      c = memcache.Client()
+      keys = [self.get_rpos_key(), self.get_wpos_key()]
+      ret = memcache.get_multi(keys, for_cas=True) #, '', None, True) #x?
+      logging.info("get: initial pos: " + str(ret))
+      rpos = ret.get(self.get_rpos_key(), 0)
+      wpos = ret.get(self.get_wpos_key(), 0)
+      if rpos == wpos:
+        break
+      
+      # get the messages, adjusting wpos downward if any aren't yet filled in
+      messages = []
+      keys = [str(i) for i in range(rpos, wpos)]
+      ret = c.get_multi(keys, self.get_messages_key()) # on client?
+      logging.info("get: messages: " + str(ret))
+      for key in keys:
+        if key in ret:
+          messages.append(ret[key])
+        else:
+          wpos = int(key)
+          break
+
+      # update rpos to wpos, or retry the whole thing
+      #written = c.cas(self.get_rpos_key(), wpos)
+      written = c.set(self.get_rpos_key(), wpos) #needed?
+      logging.info("get: final rpos: " + str(wpos) + " ok: " + str(written))
+
+    return messages
+
+  def push(self, msg):
+    # increment the wpos, then write to wpos - 1
+    index = memcache.incr(self.get_wpos_key(), 1, None, 0) - 1
+    written = memcache.add(self.get_message_key(index), msg)
+    assert(written)
+
+  def get_rpos_key(self):
+    return self.qid + '/rpos'
+  def get_wpos_key(self):
+    return self.qid + '/wpos'
+  def get_messages_key(self):
+    return self.qid + '/'
+  def get_message_key(self, index):
+    return self.qid + '/' + str(index)
 
 def generate_random(length):
   word = ''
@@ -104,29 +151,35 @@ def handle_message(room, user, message):
     on_message(room, user, message)
 
 def get_saved_messages(client_id):
-  return Message.gql("WHERE client_id = :id", id=client_id)
+  q = MsgQueue(client_id)
+  return q.get()
+  #return Message.gql("WHERE client_id = :id", id=client_id)
 
 def delete_saved_messages(client_id):
-  messages = get_saved_messages(client_id)
-  for message in messages:
-    message.delete()
-    logging.info('Deleted the saved message for ' + client_id)
+  pass
+  #messages = get_saved_messages(client_id)
+  #for message in messages:
+  #  message.delete()
+  #  logging.info('Deleted the saved message for ' + client_id)
 
 def send_saved_messages(client_id):
   messages = get_saved_messages(client_id)
   for message in messages:
-    channel.send_message(client_id, message.msg)
+    channel.send_message(client_id, message) #.msg)
     logging.info('Delivered saved message to ' + client_id)
-    message.delete()
+    #message.delete()
 
 def on_message(room, user, message):
   client_id = make_client_id(room, user)
-  if room.is_connected(user):
-    channel.send_message(client_id, message)
-    logging.info('Delivered message to user ' + user)
+  if False: #room.is_connected(user):
+    pass
+    #channel.send_message(client_id, message)
+    #logging.info('Delivered message to user ' + user)
   else:
-    new_message = Message(client_id = client_id, msg = message)
-    new_message.put()
+    q = MsgQueue(client_id)
+    q.push(message)
+    #new_message = Message(client_id = client_id, msg = message)
+    #new_message.put()
     logging.info('Saved message for user ' + user)
 
 def add_media_track_constraint(track_constraints, constraint_string):
@@ -299,40 +352,50 @@ class ConnectPage(webapp2.RequestHandler):
   def post(self):
     key = self.request.get('from')
     room_key, user = key.split('/')
-    with LOCK:
-      room = connect_user_to_room(room_key, user)
-      if room and room.has_user(user):
-        send_saved_messages(make_client_id(room, user))
+    room = connect_user_to_room(room_key, user)
+    #if room and room.has_user(user):
+    #  send_saved_messages(make_client_id(room, user))
 
 class DisconnectPage(webapp2.RequestHandler):
   def post(self):
     key = self.request.get('from')
     room_key, user = key.split('/')
-    with LOCK:
-      room = Room.get_by_key_name(room_key)
-      if room and room.has_user(user):
-        other_user = room.get_other_user(user)
-        room.remove_user(user)
-        logging.info('User ' + user + ' removed from room ' + room_key)
-        logging.info('Room ' + room_key + ' has state ' + str(room))
-        if other_user and other_user != user:
-          channel.send_message(make_client_id(room, other_user),
+    room = Room.get_by_key_name(room_key)
+    if room and room.has_user(user):
+      other_user = room.get_other_user(user)
+      room.remove_user(user)
+      logging.info('User ' + user + ' removed from room ' + room_key)
+      logging.info('Room ' + room_key + ' has state ' + str(room))
+      if other_user and other_user != user:
+        channel.send_message(make_client_id(room, other_user),
                                '{"type":"bye"}')
-          logging.info('Sent BYE to ' + other_user)
+        logging.info('Sent BYE to ' + other_user)
     logging.warning('User ' + user + ' disconnected from room ' + room_key)
 
 
 class MessagePage(webapp2.RequestHandler):
   def post(self):
+    logging.info('Received message')
     message = self.request.body
     room_key = self.request.get('r')
     user = self.request.get('u')
-    with LOCK:
-      room = Room.get_by_key_name(room_key)
-      if room:
-        handle_message(room, user, message)
-      else:
-        logging.warning('Unknown room ' + room_key)
+    room = Room.get_by_key_name(room_key)
+    logging.info('Got room, handling message')
+    if room:
+      handle_message(room, user, message)
+    else:
+      logging.warning('Unknown room ' + room_key)
+    logging.info('Done')
+
+class PollPage(webapp2.RequestHandler):
+  def get(self):
+    logging.info('Received poll')
+    room_key = self.request.get('r')
+    user = self.request.get('u')
+    msgs = get_saved_messages(room_key + '/' + user)
+    logging.info('Got messages')
+    self.response.out.write(json.dumps(msgs))
+    logging.info('Done')
 
 class MainPage(webapp2.RequestHandler):
   """The main UI page, renders the 'index.html' template."""
@@ -466,30 +529,29 @@ class MainPage(webapp2.RequestHandler):
       return
 
     user = None
-    initiator = 0
-    with LOCK:
-      room = Room.get_by_key_name(room_key)
-      if not room and debug != "full":
-        # New room.
-        user = generate_random(8)
-        room = Room(key_name = room_key)
-        room.add_user(user)
-        if debug != 'loopback':
-          initiator = 0
-        else:
-          room.add_user(user)
-          initiator = 1
-      elif room and room.get_occupancy() == 1 and debug != 'full':
-        # 1 occupant.
-        user = generate_random(8)
+    initiator = 0   
+    room = Room.get_by_key_name(room_key)
+    if not room and debug != "full":
+      # New room.
+      user = generate_random(8)
+      room = Room(key_name = room_key)
+      room.add_user(user)
+      if debug != 'loopback':
+        initiator = 0
+      else:
         room.add_user(user)
         initiator = 1
-      else:
-        # 2 occupants (full).
-        template = jinja_environment.get_template('full.html')
-        self.response.out.write(template.render({ 'room_key': room_key }))
-        logging.info('Room ' + room_key + ' is full')
-        return
+    elif room and room.get_occupancy() == 1 and debug != 'full':
+      # 1 occupant.
+      user = generate_random(8)
+      room.add_user(user)
+      initiator = 1
+    else:
+      # 2 occupants (full).
+      template = jinja_environment.get_template('full.html')
+      self.response.out.write(template.render({ 'room_key': room_key }))
+      logging.info('Room ' + room_key + ' is full')
+      return
 
     if turn_server == 'false':
       turn_server = None
@@ -542,6 +604,7 @@ class MainPage(webapp2.RequestHandler):
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/message', MessagePage),
+    ('/poll', PollPage),
     ('/_ah/channel/connected/', ConnectPage),
     ('/_ah/channel/disconnected/', DisconnectPage)
   ], debug=True)

@@ -80,6 +80,7 @@ function openChannel() {
     'onclose': onChannelClosed
   };
   socket = channel.open(handler);
+  pollMessages();
 }
 
 function maybeRequestTurn() {
@@ -177,7 +178,7 @@ function createPeerConnection() {
 }
 
 function maybeStart() {
-  if (!started && signalingReady && channelReady && turnDone &&
+  if (!started && signalingReady && turnDone &&
       (localStream || !hasLocalStream)) {
     startTime = performance.now();
     setStatus('Connecting...');
@@ -288,6 +289,26 @@ function sendMessage(message) {
   xhr.send(msgString);
 }
 
+function pollMessages() {
+  trace('Polling.');
+  path = '/poll?r=' + roomKey + '&u=' + me;
+  var xhr = new XMLHttpRequest();
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState == 4 && xhr.status == 200) {
+      var msgs = JSON.parse(xhr.responseText);
+      //console.log("poll got: " + xhr.responseText)
+      for (var i = 0; i < msgs.length; ++i) {
+        onChannelMessage({data: msgs[i]});
+      }
+      //if (!channelReady)
+      if (!endTime && performance.now() < 5000)
+        pollMessages();
+    }  
+  }
+  xhr.open('GET', path, true);
+  xhr.send();
+}
+
 function processSignalingMessage(message) {
   if (!started) {
     messageError('peerConnection has not been created yet!');
@@ -321,7 +342,6 @@ function onAddIceCandidateError(error) {
 function onChannelOpened() {
   trace('Channel opened.');
   channelReady = true;
-  maybeStart();
 }
 
 function onChannelMessage(message) {
