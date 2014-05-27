@@ -68,7 +68,7 @@ function initialize() {
 
 function openChannel() {
   trace('Opening channel.');
-  var channel = new goog.appengine.Channel(channelToken);
+  var channel; // = new goog.appengine.Channel(channelToken);
   var handler = {
     'onopen': onChannelOpened,
     'onmessage': onChannelMessage,
@@ -518,7 +518,8 @@ function onHangup() {
   localStream.stop();
   stop();
   // will trigger BYE from server
-  socket.close();
+  if (socket)
+    socket.close();
 }
 
 function onRemoteHangup() {
@@ -991,7 +992,7 @@ function setDefaultCodec(mLine, payload) {
 // to ensure the room is cleaned up for the next session.
 window.onbeforeunload = function() {
   sendMessage({type: 'bye'});
-}
+};
 
 // Set the video diplaying in the center of window.
 window.onresize = function(){

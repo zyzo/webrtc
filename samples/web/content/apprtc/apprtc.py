@@ -528,6 +528,7 @@ class MainPage(webapp2.RequestHandler):
       logging.info('Redirecting visitor to base URL to ' + redirect)
       return
 
+    logging.info('Trying to add user to room ' + room_key)
     user = None
     initiator = 0   
     room = Room.get_by_key_name(room_key)
@@ -559,6 +560,9 @@ class MainPage(webapp2.RequestHandler):
     else:
       turn_url = 'https://computeengineondemand.appspot.com/'
       turn_url = turn_url + 'turn?' + 'username=' + user + '&key=4080218913'
+
+    logging.info('User ' + user + ' added to room ' + room_key)
+    logging.info('Room ' + room_key + ' has state ' + str(room))
 
     room_link = base_url + '?r=' + room_key
     room_link = append_url_arguments(self.request, room_link)
@@ -595,10 +599,10 @@ class MainPage(webapp2.RequestHandler):
     else:
       target_page = 'index.html'
 
+    logging.info('Sending response')
     template = jinja_environment.get_template(target_page)
     self.response.out.write(template.render(template_values))
-    logging.info('User ' + user + ' added to room ' + room_key)
-    logging.info('Room ' + room_key + ' has state ' + str(room))
+    logging.info('Sent response')
 
 
 app = webapp2.WSGIApplication([
