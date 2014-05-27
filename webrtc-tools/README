@@ -1,0 +1,10 @@
+## WebRTC Tools ##
+
+Is a chrome extension that intends to be a placeholder for tools that help
+developping WebRTC apps in chrome. For now the only use is:
+
+Help testing TURN configurations:
+  When active this extension hijacks every call to addIceCandidate and drops
+  non-relay candidates. Thus when installed and active in both peers of a
+  connection it forces the media plane to go through TURN servers, since no
+  peer connection is aware of the non-relay candidates of other candidates.

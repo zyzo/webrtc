@@ -1,0 +1,20 @@
+{
+  "manifest_version": 2,
+  "name": "WebRTC Tools",
+  "version": "0",
+
+  "description": "When active it drops non-relay candidates added to peer connection addIceCandidate methods. If active in both peers it forces the connection to go through a TURN server.",
+
+  // TODO(andresp): add icons.
+  // "icons": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" }
+
+  "content_scripts": [{
+    "matches": ["https://*/*"],
+    "js": ["inject.js"],
+    "run_at": "document_start"
+  }],
+
+  "web_accessible_resources": [
+    "override.js"
+  ]
+}
