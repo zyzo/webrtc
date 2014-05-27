@@ -13,7 +13,6 @@ var endTime;
 var started = false;
 var turnDone = false;
 var channelReady = false;
-var signalingReady = false;
 var msgQueue = [];
 var rtt;
 var e2eDelay;
@@ -55,10 +54,7 @@ function initialize() {
   // NOTE: AppRTCClient.java searches & parses this line; update there when
   // changing here.
   openChannel();
-  maybeRequestTurn();
-
-  // Caller is always ready to create peerConnection.
-  signalingReady = initiator;
+  maybeRequestTurn();  
 
   if (mediaConstraints.audio === false &&
       mediaConstraints.video === false) {
@@ -79,7 +75,7 @@ function openChannel() {
     'onerror': onChannelError,
     'onclose': onChannelClosed
   };
-  socket = channel.open(handler);
+  //++++socket = channel.open(handler);
   pollMessages();
 }
 
@@ -178,8 +174,7 @@ function createPeerConnection() {
 }
 
 function maybeStart() {
-  if (!started && signalingReady && turnDone &&
-      (localStream || !hasLocalStream)) {
+  if (!started && turnDone && (localStream || !hasLocalStream)) {
     startTime = performance.now();
     setStatus('Connecting...');
     trace('Creating PeerConnection.');
@@ -196,7 +191,7 @@ function maybeStart() {
     if (initiator)
       doCall();
     else
-      calleeStart();
+      maybeProcessSignalingQueue();
   }
 }
 
@@ -212,10 +207,14 @@ function doCall() {
                  onCreateSessionDescriptionError, constraints);
 }
 
-function calleeStart() {
-  // Callee starts to process cached offer and other messages.
-  while (msgQueue.length > 0) {
-    processSignalingMessage(msgQueue.shift());
+function maybeProcessSignalingQueue() {
+  // If the queue finally has an offer or answer, we can process it.
+  if (msgQueue.length > 0 && 
+      (msgQueue[0].type === 'offer' || msgQueue[0].type === 'answer')) {
+    trace('Receive signaling time: ' + (performance.now() - startTime).toFixed(0) + 'ms.');
+    while (msgQueue.length > 0) {
+      processSignalingMessage(msgQueue.shift());
+    }
   }
 }
 
@@ -347,22 +346,22 @@ function onChannelOpened() {
 function onChannelMessage(message) {
   trace('S->C: ' + message.data);
   var msg = JSON.parse(message.data);
-  // Since the turn response is async and also GAE might disorder the
-  // Message delivery due to possible datastore query at server side,
-  // So callee needs to cache messages before peerConnection is created.
-  if (!initiator && !started) {
-    if (msg.type === 'offer') {
-      // Add offer to the beginning of msgQueue, since we can't handle
-      // Early candidates before offer at present.
+  if (started && pc.remoteDescription) {
+    // If we've already started the PeerConnection, and we've already received
+    // the offer or answer, we know we can process the signaling message.
+    processSignalingMessage(msg);
+  } else {
+    // Otherwise, we need to queue it. If we get an offer or answer, put it 
+    // at the head of the queue; if we a candidate message, put it at the tail.
+    // This works around the fact that our signaling channel doesn't currently
+    // preserve ordering.
+    if (msg.type === 'offer' || msg.type === 'answer') {
       msgQueue.unshift(msg);
-      // Callee creates PeerConnection
-      signalingReady = true;
-      maybeStart();
     } else {
       msgQueue.push(msg);
     }
-  } else {
-    processSignalingMessage(msg);
+    if (started)
+      maybeProcessSignalingQueue();
   }
 }
 
@@ -425,6 +424,9 @@ function iceCandidateType(candidateSDP) {
 
 function onIceCandidate(event) {
   if (event.candidate) {
+    if (event.candidate.sdpMLineIndex != 0 ||
+        event.candidate.candidate.indexOf(' 2 ') != -1 ||
+        event.candidate.candidate.indexOf('tcp') != -1) return;
     sendMessage({type: 'candidate',
                  label: event.candidate.sdpMLineIndex,
                  id: event.candidate.sdpMid,
@@ -503,6 +505,9 @@ function onSignalingStateChanged(event) {
 function onIceConnectionStateChanged(event) {
   if (pc) {
     trace('ICE connection state changed to: ' + pc.iceConnectionState);
+    if (pc.iceConnectionState == 'completed') {
+      trace('ICE complete time: ' + (performance.now() - startTime).toFixed(0) + 'ms.');
+    }
   }
   updateInfoDiv();
 }
@@ -525,7 +530,6 @@ function onRemoteHangup() {
 
 function stop() {
   started = false;
-  signalingReady = false;
   isAudioMuted = false;
   isVideoMuted = false;
   pc.close();
