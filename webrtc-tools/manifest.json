@@ -3,7 +3,7 @@
   "name": "WebRTC Tools",
   "version": "0",
 
-  "description": "When active it drops non-relay candidates added to peer connection addIceCandidate methods. If active in both peers it forces the connection to go through a TURN server.",
+  "description": "When active it injects modified behaviour in RTCPeerConnections as configured on override.js on the extension source code.",
 
   "icons": {
     "16": "images/icon16.png",
@@ -12,7 +12,7 @@
   },
 
   "content_scripts": [{
-    "matches": ["https://*/*"],
+    "matches": ["*://localhost/*"],
     "js": ["inject.js"],
     "run_at": "document_start"
   }],
