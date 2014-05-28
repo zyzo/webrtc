@@ -14,7 +14,8 @@
 // limitations under the License.
 //
 (function () {
-  console.log("WebRTC Tools extension is running on this page.");
+  var logPrefix = "WebRTC-tools > ";
+  console.log(logPrefix + "WebRTC Tools extension is running on this page.");
 
   // Hijack window.webkitRTCPeerConnection.
   var webkitRTCPeerConnection_ = window.webkitRTCPeerConnection;
@@ -28,7 +29,7 @@
       if (candidate.candidate.indexOf("typ relay ") != -1) {
         addIceCandidate_(candidate, successCallback, failureCallback);
       } else {
-        console.log("Dropping addIceCandidate of non relay type: " + candidate.candidate);
+        console.log(logPrefix + "Dropping addIceCandidate of non relay type: " + candidate.candidate);
         successCallback();
       }
     }
