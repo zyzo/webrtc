@@ -37,7 +37,7 @@
   var stereoscopic = '{{ ssr }}';
   var audioSendCodec = '{{ audio_send_codec }}';
   var audioRecvCodec = '{{ audio_receive_codec }}';
-  setTimeout(initialize, 1);
+  //setTimeout(initialize, 1);
 </script>
 <div id="container" ondblclick="enterFullScreen()">
   <div id="card">
@@ -60,4 +60,7 @@
 <footer id="status">
 </footer>
 <div id="infoDiv"></div>
+<script type="text/javascript">
+  initialize();
+</script>
 </html>

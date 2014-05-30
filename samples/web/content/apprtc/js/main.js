@@ -122,9 +122,9 @@ function onTurnResult() {
       pcConfig.iceServers = pcConfig.iceServers.concat(iceServers);
     }
   } else {
-    messageError('No TURN server; unlikely that media will traverse networks.  '
-                 + 'If this persists please report it to '
-                 + 'discuss-webrtc@googlegroups.com.');
+    //messageError('No TURN server; unlikely that media will traverse networks.  '
+    //             + 'If this persists please report it to '
+    //             + 'discuss-webrtc@googlegroups.com.');
   }
   // If TURN request failed, continue the call with default STUN.
   turnDone = true;
@@ -300,7 +300,7 @@ function pollMessages() {
         onChannelMessage({data: msgs[i]});
       }
       //if (!channelReady)
-      if (!endTime && performance.now() < 5000)
+      if (!endTime && performance.now() < 30000)
         pollMessages();
     }  
   }
@@ -550,7 +550,8 @@ function waitForRemoteVideo() {
 }
 
 function transitionToActive() {
-  endTime = performance.now();
+  // subtract out any time elapsed since video started
+  endTime = performance.now() - remoteVideo.currentTime * 1000;
   trace('Call setup time: ' + (endTime - startTime).toFixed(0) + 'ms.');
   updateInfoDiv();
   // Prepare the remote video and PIP elements.
