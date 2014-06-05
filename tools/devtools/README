@@ -1,20 +1,8 @@
-## WebRTC Tools ##
+## WebRTC DevTools ##
 
-Is a chrome extension that intends to be a placeholder for tools that help
-developping WebRTC apps in chrome. For now the only use is to inject modified
-peer connection settings.
+Is a chrome devtools extension that aims at helping develop WebRTC apps in chrome.
+Once installed as an extension in chrome it adds a WebRTC tab to devtools that allows
+to manipulate and inspect peer connections created on the tab.
 
-# How to use:
- - Use "Load unpacked extension" from chrome://extensions in developer mode to
-   load the extension from a local copy of this project in the browser.
-
- - Modify override.js settings part with desired behaviour to inject.
-
- - Extension is configured to only run in localhost pages, you can change so in
-   manifest.json
-
- - Certain modifications may require the extension to be reloaded. That is easy
-   achievable on the chrome://extensions page.
-
- - Remember to disable the extension once finished with testing or it will
-   affect every peer connection on the matching url patterns.
+It works by reloading the target page with injected javascript that wraps RTCPeerConnection
+with code that allows the devtools WebRTC tab to inspect details of the created connections.

@@ -1,9 +1,9 @@
 {
   "manifest_version": 2,
-  "name": "WebRTC Tools",
-  "version": "0",
 
-  "description": "When active it injects modified behaviour in RTCPeerConnections as configured on override.js on the extension source code.",
+  "name": "WebRTC DevTools",
+  "version": "0.1",
+  "description": "Extends devtools with features to develop WebRTC applications",
 
   "icons": {
     "16": "images/icon16.png",
@@ -11,13 +11,5 @@
     "128": "images/icon128.png"
   },
 
-  "content_scripts": [{
-    "matches": ["*://localhost/*"],
-    "js": ["inject.js"],
-    "run_at": "document_start"
-  }],
-
-  "web_accessible_resources": [
-    "override.js"
-  ]
+  "devtools_page": "devtools.html",
 }
