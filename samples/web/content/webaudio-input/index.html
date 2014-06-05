@@ -1,3 +1,10 @@
+<!--
+ *  Copyright (c) 2014 The WebRTC project authors. All Rights Reserved.
+ *
+ *  Use of this source code is governed by a BSD-style license
+ *  that can be found in the LICENSE file in the root of the source
+ *  tree.
+-->
 <!DOCTYPE html>
 <html>
 <head>
@@ -17,13 +24,14 @@
   // WebAudio helper class which takes care of the WebAudio related parts.
 
   function WebAudio() {
-    this.context = new webkitAudioContext();
+    window.AudioContext = window.AudioContext || window.webkitAudioContext;
+    this.context = new AudioContext();
     this.soundBuffer = null;
   }
 
   WebAudio.prototype.start = function() {
     this.filter = this.context.createBiquadFilter();
-    this.filter.type = this.filter.HIGHPASS;
+    this.filter.type = "highpass";
     this.filter.frequency.value = 1500;
   }
 
@@ -61,7 +69,7 @@
   }
 
   WebAudio.prototype.loadCompleted = function() {
-    this.soundBuffer = this.context.createBuffer(this.request.response, true);
+    this.context.decodeAudioData(this.request.response, function (buffer) {this.soundBuffer = buffer;}.bind(this));
   }
 
   WebAudio.prototype.loadSound = function(url) {
@@ -114,6 +122,7 @@
       var filteredStream = webAudio.applyFilter(stream);
 
       var servers = null;
+
       pc1 = new webkitRTCPeerConnection(servers);
       console.log('Created local peer connection object pc1');
       pc1.onicecandidate = iceCallback1;

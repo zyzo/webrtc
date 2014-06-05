@@ -1,3 +1,10 @@
+/*
+ *  Copyright (c) 2014 The WebRTC project authors. All Rights Reserved.
+ *
+ *  Use of this source code is governed by a BSD-style license
+ *  that can be found in the LICENSE file in the root of the source
+ *  tree.
+ */
 var RTCPeerConnection = null;
 var getUserMedia = null;
 var attachMediaStream = null;
@@ -13,7 +20,7 @@ function trace(text) {
   console.log((performance.now() / 1000).toFixed(3) + ": " + text);
 }
 function maybeFixConfiguration(pcConfig) {
-  if (pcConfig === null) {
+  if (!pcConfig) {
     return;
   }
   for (var i = 0; i < pcConfig.iceServers.length; i++) {
@@ -107,18 +114,6 @@ if (navigator.mozGetUserMedia) {
     to.play();
   };
 
-  // Fake get{Video,Audio}Tracks
-  if (!MediaStream.prototype.getVideoTracks) {
-    MediaStream.prototype.getVideoTracks = function() {
-      return [];
-    };
-  }
-
-  if (!MediaStream.prototype.getAudioTracks) {
-    MediaStream.prototype.getAudioTracks = function() {
-      return [];
-    };
-  }
 } else if (navigator.webkitGetUserMedia) {
   console.log("This appears to be Chrome");
 

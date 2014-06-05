@@ -1,3 +1,10 @@
+/*
+ *  Copyright (c) 2014 The WebRTC project authors. All Rights Reserved.
+ *
+ *  Use of this source code is governed by a BSD-style license
+ *  that can be found in the LICENSE file in the root of the source
+ *  tree.
+ */
 var localVideo;
 var miniVideo;
 var remoteVideo;
@@ -8,16 +15,12 @@ var channel;
 var pc;
 var socket;
 var xmlhttp;
-var startTime;
-var endTime;
 var started = false;
 var turnDone = false;
 var channelReady = false;
 var signalingReady = false;
 var msgQueue = [];
-var rtt;
-var e2eDelay;
-var getStatsTimer;
+
 // Set up audio and video regardless of what devices are present.
 // Disable comfort noise for maximum audio quality.
 var sdpConstraints = {
@@ -31,9 +34,13 @@ var sdpConstraints = {
 };
 var isVideoMuted = false;
 var isAudioMuted = false;
-// Types of gathered ICE Candidates.
+
+// Stats for info div.
+var startTime, endTime;
 var gatheredIceCandidateTypes = { Local: {}, Remote: {} };
 var infoDivErrors = [];
+var stats;
+var getStatsTimer;
 
 function initialize() {
   if (errorMessages.length > 0) {
@@ -259,14 +266,14 @@ function onSetRemoteDescriptionSuccess() {
   // so we can know if the peer has any remote video streams that we need
   // to wait for. Otherwise, transition immediately to the active state.
   // NOTE: Ideally we could just check |remoteStream| here, which is populated
-  // in the onaddstream callback. But as indicated in 
+  // in the onaddstream callback. But as indicated in
   // https://code.google.com/p/webrtc/issues/detail?id=3358, sometimes this
   // callback is dispatched after the setRemoteDescription success callback.
   // Therefore, we read the remoteStreams array directly from the
   // PeerConnection, which seems to work reliably.
   var remoteStreams = pc.getRemoteStreams();
   if (remoteStreams.length > 0 &&
-      remoteStreams[0].getVideoTracks().length > 0) {    
+      remoteStreams[0].getVideoTracks().length > 0) {
       trace('Waiting for remote video.');
       waitForRemoteVideo();
     } else {
@@ -302,7 +309,7 @@ function processSignalingMessage(message) {
   } else if (message.type === 'candidate') {
     var candidate = new RTCIceCandidate({sdpMLineIndex: message.label,
                                          candidate: message.candidate});
-    noteIceCandidate("Remote", iceCandidateType(message.candidate));
+    noteIceCandidate('Remote', iceCandidateType(message.candidate));
     pc.addIceCandidate(candidate,
                        onAddIceCandidateSuccess, onAddIceCandidateError);
   } else if (message.type === 'bye') {
@@ -394,13 +401,12 @@ function onSetSessionDescriptionError(error) {
 }
 
 function iceCandidateType(candidateSDP) {
-  if (candidateSDP.indexOf("typ relay ") >= 0)
-    return "TURN";
-  if (candidateSDP.indexOf("typ srflx ") >= 0)
-    return "STUN";
-  if (candidateSDP.indexOf("typ host ") >= 0)
-    return "HOST";
-  return "UNKNOWN";
+  switch (candidateSDP.split(' ')[7]) {
+    case 'host': return 'HOST';
+    case 'srflx': return 'STUN';
+    case 'relay': return 'TURN';
+    default: return 'UNKNOWN';
+  }
 }
 
 function onIceCandidate(event) {
@@ -415,7 +421,7 @@ function onIceCandidate(event) {
                  label: event.candidate.sdpMLineIndex,
                  id: event.candidate.sdpMid,
                  candidate: event.candidate.candidate});
-    noteIceCandidate("Local", iceCandidateType(event.candidate.candidate));
+    noteIceCandidate('Local', iceCandidateType(event.candidate.candidate));
   } else {
     trace('End of candidates.');
   }
@@ -427,21 +433,17 @@ function onRemoteStreamAdded(event) {
   remoteStream = event.stream;
 }
 
-function computeRttAndDelay() {
+function refreshStats() {
   if (pc) {
     pc.getStats(function(response) {
-      var stats = response.result();
-      rtt = extractStatAsInt(stats, 'ssrc', 'googRtt');
-      var captureStart = extractStatAsInt(stats, 'ssrc',
-                                          'googCaptureStartNtpTimeMs');
-      if (captureStart)
-        e2eDelay = computeE2EDelay(captureStart, remoteVideo.currentTime);
+      stats = response.result();
       updateInfoDiv();
     });
   }
 }
 
-// Return the integer stat |statName| from |stats|, or undef if not present.
+// Return the integer stat |statName| from the object with type |statObj| in
+// |stats|, or undef if not present.
 function extractStatAsInt(stats, statObj, statName) {
   // Ignore stats that have a 'nullish' value.
   // The correct fix is indicated in
@@ -455,12 +457,34 @@ function extractStatAsInt(stats, statObj, statName) {
   }
 }
 
-// Return the stat |statName| from |stats| as a string, or undef if not present.
+// Return the stat |statName| from the object with type |statObj| in |stats|
+// as a string, or undef if not present.
 function extractStat(stats, statObj, statName) {
-  for (var i = 0; i < stats.length; ++i) {
-    var report = stats[i];
-    if (report.type == statObj && report.names().indexOf(statName) != -1) {
-      return report.stat(statName);
+  var report = getStatsReport(stats, statObj, statName);
+  if (report && report.names().indexOf(statName) !== -1) {
+    return report.stat(statName);
+  }
+}
+
+// Return the stats report with type |statObj| in |stats|, with the stat
+// |statName| (if specified), and value |statVal| (if specified). Return
+// undef if not present.
+function getStatsReport(stats, statObj, statName, statVal) {
+  if (stats) {
+    for (var i = 0; i < stats.length; ++i) {
+      var report = stats[i];
+      if (report.type === statObj) {
+        var found = true;
+        // If |statName| is present, ensure |report| has that stat.
+        // If |statVal| is present, ensure the value matches.
+        if (statName) {
+          var val = report.stat(statName);
+          found = (statVal !== undefined) ? (val === statVal) : val;
+        }
+        if (found) {
+          return report;
+        }
+      }
     }
   }
 }
@@ -574,7 +598,11 @@ function transitionToDone() {
 }
 
 function enterFullScreen() {
-  container.webkitRequestFullScreen();
+  // When full-screening the canvas we want to avoid the extra spacing
+  // introduced by the containing div, but when full-screening the rectangular
+  // view we want to keep the full container visible (including e.g. miniVideo).
+  var element = (event.target.id == "remoteCanvas") ? event.target : container;
+  element.webkitRequestFullScreen();
 }
 
 function noteIceCandidate(location, type) {
@@ -588,50 +616,69 @@ function noteIceCandidate(location, type) {
 }
 
 function getInfoDiv() {
-  return document.getElementById("infoDiv");
+  return document.getElementById('infoDiv');
 }
 
 function buildLine(label, value) {
   var columnWidth = 12;
-  var line = "";
+  var line = '';
   if (label) {
-    line += label + ":";
+    line += label + ':';
     while (line.length < columnWidth)
-      line += " ";
+      line += ' ';
 
     if (value) {
       line += value;
     }
   }
-  line += "\n";
+  line += '\n';
   return line;
 }
 
 function updateInfoDiv() {
-  var contents = "<pre>";
+  var contents = '<pre>';
   if (pc) {
-    contents += buildLine("States");
-    contents += buildLine("Signaling", pc.signalingState);
-    contents += buildLine("Gathering", pc.iceGatheringState);
-    contents += buildLine("Connection", pc.iceConnectionState);
+    // Obtain any needed values from stats.
+    var rtt = extractStatAsInt(stats, 'ssrc', 'googRtt');
+    var captureStart = extractStatAsInt(stats, 'ssrc',
+                                        'googCaptureStartNtpTimeMs');
+    if (captureStart)
+      var e2eDelay = computeE2EDelay(captureStart, remoteVideo.currentTime);
+    var activeCandPair = getStatsReport(stats, 'googCandidatePair',
+                                        'googActiveConnection', 'true');
+    if (activeCandPair) {
+      var localAddr = activeCandPair.stat('googLocalAddress');
+      var remoteAddr = activeCandPair.stat('googRemoteAddress');
+    }
+
+    // Build the display.
+    contents += buildLine('States');
+    contents += buildLine('Signaling', pc.signalingState);
+    contents += buildLine('Gathering', pc.iceGatheringState);
+    contents += buildLine('Connection', pc.iceConnectionState);
     for (var endpoint in gatheredIceCandidateTypes) {
       var types = [];
       for (var type in gatheredIceCandidateTypes[endpoint])
-        types.push(type + ":" + gatheredIceCandidateTypes[endpoint][type]);
+        types.push(type + ':' + gatheredIceCandidateTypes[endpoint][type]);
       types.sort();
-      contents += buildLine(endpoint, types.join(" "));
+      contents += buildLine(endpoint, types.join(' '));
+    }
+    if (localAddr && remoteAddr) {
+      contents += buildLine('LocalAddr', localAddr);
+      contents += buildLine('RemoteAddr', remoteAddr);
     }
     contents += buildLine();
-    contents += buildLine("Stats");
-    if (endTime != null) 
-      contents += buildLine("Setup time",
-                            (endTime - startTime).toFixed(0).toString() + "ms");
+
+    contents += buildLine('Stats');
+    if (endTime != null)
+      contents += buildLine('Setup time',
+                            (endTime - startTime).toFixed(0).toString() + 'ms');
     if (rtt != null)
-      contents += buildLine("RTT", rtt.toString() + "ms");
+      contents += buildLine('RTT', rtt.toString() + 'ms');
     if (e2eDelay != null)
-      contents += buildLine("End to end", e2eDelay.toString() + "ms");
+      contents += buildLine('End to end', e2eDelay.toString() + 'ms');
   }
-  contents += "</pre>";
+  contents += '</pre>';
 
   var div = getInfoDiv();
   div.innerHTML = contents;
@@ -643,20 +690,21 @@ function updateInfoDiv() {
 }
 
 function isInfoDivVisible() {
-  return getInfoDiv().style.display === "block";
+  return getInfoDiv().style.display === 'block';
 }
 
 function showInfoDiv() {
-  if (getStatsTimer) throw "Inconsistent infodiv state";
+  if (getStatsTimer) throw 'Inconsistent infodiv state';
   var div = getInfoDiv();
-  div.style.display = "block";
-  // Compute round-trip time and end to end delay.
-  getStatsTimer = setInterval(computeRttAndDelay, 1000);
+  div.style.display = 'block';
+  // Start stat updates.
+  refreshStats();
+  getStatsTimer = setInterval(refreshStats, 1000);
 }
 
 function hideInfoDiv() {
   var div = getInfoDiv();
-  div.style.display = "none";
+  div.style.display = 'none';
   clearInterval(getStatsTimer);
 }
 
@@ -810,7 +858,7 @@ function preferBitRate(sdp, bitrate, mediaType) {
   }
 
   // Create the b (bandwidth) sdp line.
-  var bwLine = "b=AS:" + bitrate;
+  var bwLine = 'b=AS:' + bitrate;
   // As per RFC 4566, the b line should follow after c-line.
   sdpLines.splice(cLineIndex + 1, 0, bwLine);
   sdp = sdpLines.join('\r\n');
@@ -845,10 +893,10 @@ function maybeSetVideoSendInitialBitRate(sdp) {
     return sdp;
   }
 
-  var vp8RtpmapIndex = findLine(sdpLines, "a=rtpmap", "VP8/90000")
+  var vp8RtpmapIndex = findLine(sdpLines, 'a=rtpmap', 'VP8/90000');
   var vp8Payload = getCodecPayloadType(sdpLines[vp8RtpmapIndex]);
-  var vp8Fmtp = "a=fmtp:" + vp8Payload + " x-google-min-bitrate=" +
-     videoSendInitialBitrate.toString() + "; x-google-max-bitrate=" +
+  var vp8Fmtp = 'a=fmtp:' + vp8Payload + ' x-google-min-bitrate=' +
+     videoSendInitialBitrate.toString() + '; x-google-max-bitrate=' +
      maxBitrate.toString();
   sdpLines.splice(vp8RtpmapIndex + 1, 0, vp8Fmtp);
   return sdpLines.join('\r\n');
@@ -976,7 +1024,15 @@ window.onbeforeunload = function() {
 }
 
 // Set the video diplaying in the center of window.
-window.onresize = function(){
+window.onresize = function() {
+  var containerDiv = document.getElementById('container');
+
+  // Don't letterbox while full-screening, by undoing the changes below.
+  if (document.webkitIsFullScreen) {
+    containerDiv.style.cssText = "top: 0px; left: 0px;";
+    return;
+  }
+
   var aspectRatio;
   if (remoteVideo && remoteVideo.style.opacity === '1') {
     aspectRatio = remoteVideo.videoWidth/remoteVideo.videoHeight;
@@ -992,7 +1048,6 @@ window.onresize = function(){
                    innerWidth : aspectRatio * window.innerHeight;
   var videoHeight = innerHeight < window.innerWidth / aspectRatio ?
                     innerHeight : window.innerWidth / aspectRatio;
-  containerDiv = document.getElementById('container');
   containerDiv.style.width = videoWidth + 'px';
   containerDiv.style.height = videoHeight + 'px';
   containerDiv.style.left = (innerWidth - videoWidth) / 2 + 'px';

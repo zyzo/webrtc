@@ -1,3 +1,10 @@
+/*
+ *  Copyright (c) 2014 The WebRTC project authors. All Rights Reserved.
+ *
+ *  Use of this source code is governed by a BSD-style license
+ *  that can be found in the LICENSE file in the root of the source
+ *  tree.
+ */
 var callButton = document.querySelector('button#callButton');
 var sendTonesButton = document.querySelector('button#sendTonesButton');
 var hangupButton = document.querySelector('button#hangupButton');
@@ -120,7 +127,7 @@ function gotRemoteStream(e) {
   // Call the polyfill wrapper to attach the media stream to this element.
   attachMediaStream(audio, e.stream);
   trace('Received remote stream');
-  if (RTCPeerConnection.prototype.createDTMFSender) {
+  if (pc1.createDTMFSender) {
     enableDtmfSender();
   } else {
     alert('This demo requires the RTCPeerConnection method createDTMFSender() which is not support by this browser.');
