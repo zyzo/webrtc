@@ -6,6 +6,7 @@
  *  tree.
  */
 var localConnection, remotePeerConnection, sendChannel, receiveChannel, pcConstraint, dataConstraint;
+var channelName = 'theDataChannel';
 var dataChannelSend = document.querySelector('textarea#dataChannelSend');
 var dataChannelReceive = document.querySelector('textarea#dataChannelReceive');
 var sctpSelect = document.querySelector('input#useSctp');
@@ -14,7 +15,7 @@ var startButton = document.querySelector('button#startButton');
 var sendButton = document.querySelector('button#sendButton');
 var closeButton = document.querySelector('button#closeButton');
 
-startButton.onclick = createConnection;
+startButton.onclick = createDataChannel;
 sendButton.onclick = sendData;
 closeButton.onclick = closeDataChannels;
 rtpSelect.onclick = enableStartButton;
@@ -61,19 +62,7 @@ function createConnection() {
   localConnection = new RTCPeerConnection(servers, pcConstraint);
   trace('Created local peer connection object localConnection');
 
-  try {
-    // Data Channel api supported from Chrome M25.
-    // You might need to start chrome with  --enable-data-channels flag.
-    sendChannel = localConnection.createDataChannel('sendDataChannel', dataConstraint);
-    trace('Created send data channel');
-  } catch (e) {
-    alert('Failed to create data channel. ' +
-          'You need Chrome M25 or later with --enable-data-channels flag');
-    trace('Create Data channel failed with exception: ' + e.message);
-  }
   localConnection.onicecandidate = iceCallback1;
-  sendChannel.onopen = onSendChannelStateChange;
-  sendChannel.onclose = onSendChannelStateChange;
 
   remotePeerConnection = new RTCPeerConnection(servers, pcConstraint);
   trace('Created remote peer connection object remotePeerConnection');
@@ -81,19 +70,38 @@ function createConnection() {
   remotePeerConnection.onicecandidate = iceCallback2;
   remotePeerConnection.ondatachannel = receiveChannelCallback;
 
+  // The dummy channel serves to add the data channel m-line to the SDP.
+  var dummyChannel = localConnection.createDataChannel('dummy', dataConstraint);
   localConnection.createOffer(gotDescription1, onCreateSessionDescriptionError);
-  startButton.disabled = true;
-  closeButton.disabled = false;
 }
 
 function onCreateSessionDescriptionError(error) {
   trace('Failed to create session description: ' + error.toString());
 }
 
+function createDataChannel() {
+  try {
+    // Data Channel api supported from Chrome M25.
+    // You might need to start chrome with  --enable-data-channels flag.
+    sendChannel = localConnection.createDataChannel(channelName, dataConstraint);
+    trace('Created send data channel ' + sendChannel.label);
+  } catch (e) {
+    alert('Failed to create data channel. ' +
+          'You need Chrome M25 or later with --enable-data-channels flag');
+    trace('Create Data channel failed with exception: ' + e.message);
+  }
+  sendChannel.onopen = onSendChannelStateChange;
+  sendChannel.onclose = onSendChannelStateChange;
+  startButton.disabled = true;
+  closeButton.disabled = false;
+
+  channelName = channelName + '*';
+}
+
 function sendData() {
   var data = dataChannelSend.value;
   sendChannel.send(data);
-  trace('Sent Data: ' + data);
+  trace('Sent Data \"' + data + '\" on ' + sendChannel.label);
 }
 
 function closeDataChannels() {
@@ -102,17 +110,20 @@ function closeDataChannels() {
   trace('Closed data channel with label: ' + sendChannel.label);
   receiveChannel.close();
   trace('Closed data channel with label: ' + receiveChannel.label);
-  localConnection.close();
-  remotePeerConnection.close();
-  localConnection = null;
-  remotePeerConnection = null;
-  trace('Closed peer connections');
   startButton.disabled = false;
   sendButton.disabled = true;
   closeButton.disabled = true;
   dataChannelSend.value = '';
   dataChannelReceive.value = '';
   dataChannelSend.disabled = true;
+}
+
+function closeConnections() {
+  localConnection.close();
+  remotePeerConnection.close();
+  localConnection = null;
+  remotePeerConnection = null;
+  trace('Closed peer connections');
 }
 
 function gotDescription1(desc) {
@@ -155,15 +166,15 @@ function onAddIceCandidateError(error) {
 }
 
 function receiveChannelCallback(event) {
-  trace('Receive Channel Callback');
   receiveChannel = event.channel;
+  trace('Receive Channel Callback for ' + receiveChannel.label);
   receiveChannel.onmessage = onReceiveMessageCallback;
   receiveChannel.onopen = onReceiveChannelStateChange;
   receiveChannel.onclose = onReceiveChannelStateChange;
 }
 
 function onReceiveMessageCallback(event) {
-  trace('Received Message');
+  trace('Received Message \"' + event.data);
   dataChannelReceive.value = event.data;
 }
 
@@ -186,3 +197,5 @@ function onReceiveChannelStateChange() {
   var readyState = receiveChannel.readyState;
   trace('Receive channel state is: ' + readyState);
 }
+
+createConnection();
