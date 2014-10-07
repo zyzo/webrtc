@@ -106,6 +106,7 @@ function testVideoBandwidth(config) {
   var rttStats = new StatisticsAggregate();
   var startTime;
 
+  var testDialog = new TestDialog('Video bandwidth', durationMs);
   var call = new WebRTCCall(config);
   call.setIceCandidateFilter(WebRTCCall.isRelay);
   call.constrainVideoBitrate(maxVideoBitrateKbps);
@@ -122,6 +123,9 @@ function testVideoBandwidth(config) {
      call.establishConnection();
      startTime = new Date();
      setTimeout(gatherStats, statStepMs);
+     testDialog.addPlot(bweStats);
+     testDialog.addPlot(rttStats);
+     testDialog.show();
   }
 
   function gatherStats() {
@@ -146,6 +150,7 @@ function testVideoBandwidth(config) {
   }
 
   function completed() {
+    testDialog.hide();
     call.close();
     reportSuccess("RTT average: " + rttStats.getAverage() + " ms");
     reportSuccess("RTT max: " + rttStats.getMax() + " ms");
