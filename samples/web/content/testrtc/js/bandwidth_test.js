@@ -139,10 +139,10 @@ function testVideoBandwidth(config) {
     for (var index in response.result()) {
       var report = response.result()[index];
       if (report.id == "bweforvideo") {
-        bweStats.add(Date.parse(report.timestamp),
+        bweStats.add(report.timestamp.getTime(),
           parseInt(report.stat("googAvailableSendBandwidth")));
       } else if (report.type == "ssrc") {
-        rttStats.add(Date.parse(report.timestamp),
+        rttStats.add(report.timestamp.getTime(),
           parseInt(report.stat("googRtt")));
       }
     }

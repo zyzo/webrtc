@@ -18,14 +18,15 @@ function StatisticsAggregate(rampUpThreshold) {
   this.max_ = 0;
   this.rampUpThreshold_ = rampUpThreshold;
   this.rampUpTime_ = Infinity;
-  this.times_ = [];
-  this.values_ = [];
+
+  this.times = [];
+  this.values = [];
 }
 
 StatisticsAggregate.prototype = {
   add: function (time, value) {
-    this.times_.push(time);
-    this.values_.push(value);
+    this.times.push(time);
+    this.values.push(value);
     if (this.startTime_ == 0)
       this.startTime_ = time;
     this.sum_ += value;

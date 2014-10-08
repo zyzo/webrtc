@@ -31,11 +31,11 @@ function TestDialog(title, durationMs) {
 TestDialog.prototype = {
   show: function () {
     document.body.appendChild(this.element_);
-    setInterval(this.updateCanvas_.bind(this), 1000);
+    setInterval(this.updateCanvas_.bind(this), 200);
   },
 
   hide: function () {
-    document.body.removeChild(this.element_);
+    // document.body.removeChild(this.element_);
   },
 
 
@@ -44,26 +44,54 @@ TestDialog.prototype = {
   },
 
   updateCanvas_: function () {
-    window.c = this.canvasElement_;
-    var width = this.canvasElement_.width;
-    var height = this.canvasElement_.heigth;
+    window.c = this;
+    var plotHeight = 100;
+    var numPlots = this.stats_.length;
+    var width = this.canvasElement_.width = 600;
+    var height = this.canvasElement_.height = numPlots * plotHeight + 10;
     var context = this.canvasElement_.getContext("2d");
 
     context.save();
-    context.lineWidth = 10; // window.devicePixelRatio;
+    context.clearRect(0, 0, width, height);
+
+    context.lineWidth = window.devicePixelRatio;
     if (context.lineWidth % 2)
       context.translate(0.5, 0.5);
 
-    context.beginPath();
-    context.strokeStyle = "rgba(20,0,0,0.4)";
-    context.fillStyle = "rgba(214,225,254,0.8)";
-    context.moveTo(0, 0);
-    context.lineTo(50, 50);
-    context.lineTo(width/2, height/2);
-    context.lineTo(50, 100.0);
-    context.fill();
-    context.stroke();
-    context.closePath();
+    var minTime, maxTime;
+    for (var statIndex = 0; statIndex != this.stats_.length; ++statIndex) {
+      var stat = this.stats_[statIndex];
+    }
+
+    for (var statIndex = 0; statIndex != this.stats_.length; ++statIndex) {
+      var stat = this.stats_[statIndex];
+
+      var getX = function (time) {
+        return (time - stat.startTime_)/40000.0 * width;
+      }
+
+      var getY = function (value) {
+        return (1.0 - value / stat.max_) * plotHeight + statIndex * plotHeight;
+      }
+
+      window.vy = [];
+      if (stat.times.length != 0) {
+        context.beginPath();
+        // context.scale( 1 / 10000, 1);
+        // context.translate( - stat.startTime_, 0);
+        context.moveTo(getX(stat.times[0]), getY(stat.values[0]));
+        for (var i = 1; i != stat.times.length; ++i) {
+          window.vy.push(getY(stat.values[i]));
+          context.lineTo(getX(stat.times[i]), getY(stat.values[i]));
+        }
+        context.moveTo(getX(stat.times[0]), getY(stat.values[0]));
+        context.closePath();
+
+        context.strokeStyle = "rgba(20,0,0,0.4)";
+        context.stroke();
+      }
+    }
+
     context.restore();
-  }
+  },
 };
