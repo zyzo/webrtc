@@ -878,9 +878,15 @@ function setLocalAndSendMessage_(sessionDescription) {
 }
 
 function addStreamCallback_(event) {
+
   print_('Receiving remote stream...');
-  var videoElement = document.getElementById('remote-view');
+  var videoElement = $('remote-view');
   attachMediaStream(videoElement, event.stream);
+
+  var remoteVideo = $('remote-video');
+  var videoStats = new VideoStats();
+  remoteVideo.insertBefore(videoStats.domElement, remoteVideo.childNodes[0]);
+  videoStats.start(videoElement);
 
   window.addEventListener('loadedmetadata',
       function() {displayVideoSize(videoElement);}, true);
@@ -949,6 +955,10 @@ function getUserMediaOkCallback_(stream) {
                'fired.');
     };
   }
+  var localVideo = $('local-video')
+  var videoStats = new VideoStats();
+  localVideo.insertBefore(videoStats.domElement, localVideo.childNodes[0]);
+  videoStats.start(videoElement);
 }
 
 // @param {string} videoTag The ID of the video tag + stream used to write the

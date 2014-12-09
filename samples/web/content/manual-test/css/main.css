@@ -5,6 +5,11 @@
  *  that can be found in the LICENSE file in the root of the source
  *  tree.
  */
+
+ #stats {
+  margin: 3em 34em;
+ }
+
 .drop-down {
   width: 65%;
   font-size: 10px;
@@ -190,10 +195,6 @@ h2 {
   font-weight: 700;
   line-height: 1.2em;
   margin: 0 0 0.8em 0;
-}
-
-div {
-  background: white;
 }
 
 html {
