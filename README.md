@@ -6,9 +6,11 @@ This is a repository for client-side WebRTC code samples and the [AppRTC](https:
 
 Some of the samples use new browser features. They may only work in Chrome Canary and/or Firefox Beta, and may require flags to be set.
 
-All of the samples use [adapter.js](https://github.com/GoogleChrome/webrtc/blob/master/samples/web/js/adapter.js), a shim to insulate apps from spec changes and prefix differences. In fact, the standards and protocols used for WebRTC implementations are highly stable, and there are only a few prefixed names. For full interop information, see [webrtc.org/interop](http://www.webrtc.org/interop).
+All of the samples use [adapter.js](https://github.com/GoogleChrome/webrtc/blob/master/samples/web/js/adapter.js), a shim to insulate apps from spec changes and prefix differences. In fact, the standards and protocols used for WebRTC implementations are highly stable, and there are only a few prefixed names. For full interop information, see [webrtc.org/web-apis/interop](http://www.webrtc.org/web-apis/interop).
 
-NB: all samples that use `getUserMedia()` must be run from a server. Calling `getUserMedia()` from a file:// URL will result in a PermissionDeniedError NavigatorUserMediaError.  See [What are some chromium command-line flags relevant to WebRTC development/testing?](http://www.webrtc.org/chrome#TOC-What-are-some-chromium-command-line-flags-relevant-to-WebRTC-development-testing-) for relevant flags.
+NB: all samples that use `getUserMedia()` must be run from a server. Calling `getUserMedia()` from a file:// URL will result in a PermissionDeniedError NavigatorUserMediaError.
+
+[webrtc.org/testing](http://www.webrtc.org/testing) lists command line flags useful for development and testing with Chrome.
 
 For more information about WebRTC, we maintain a list of [WebRTC Resources](https://docs.google.com/document/d/1idl_NYQhllFEFqkGQOLv8KBK8M3EVzyvxnKkHl4SuM8/edit). If you've never worked with WebRTC, we recommend you start with the 2013 Google I/O [WebRTC presentation](http://www.youtube.com/watch?v=p2HzZkd2A40).
 
@@ -66,30 +68,34 @@ Patches and issues welcome!
 
 ### Video chat ###
 
-[Complete video chat client (based on Google App Engine)](https://apprtc.appspot.com)
+[AppRTC video chat client](https://apprtc.appspot.com) powered by Google App Engine
+
+[AppRTC URL parameters](https://apprtc.appspot.com/html/params.html)
 
 ## Test pages ##
 
-[Audio and Video streams](https://googlechrome.github.io/webrtc/samples/web/content/manual/audio-and-video)
+[Audio and Video streams](https://googlechrome.github.io/webrtc/samples/web/content/manual-test/audio-and-video)
 
-[Constraints](https://googlechrome.github.io/webrtc/samples/web/content/manual/constraints)
+[Constraints](https://googlechrome.github.io/webrtc/samples/web/content/manual-test/constraints)
 
-[Iframe apprtc](https://googlechrome.github.io/webrtc/samples/web/content/manual/iframe-apprtc)
+[Iframe apprtc](https://googlechrome.github.io/webrtc/samples/web/content/manual-test/iframe-apprtc)
 
-[Iframe video](https://googlechrome.github.io/webrtc/samples/web/content/manual/iframe-video)
+[Iframe video](https://googlechrome.github.io/webrtc/samples/web/content/manual-test/iframe-video)
 
-[Multiple audio streams](https://googlechrome.github.io/webrtc/samples/web/content/manual/multiple-audio)
+[Multiple audio streams](https://googlechrome.github.io/webrtc/samples/web/content/manual-test/multiple-audio)
 
-[Multiple peerconnections](https://googlechrome.github.io/webrtc/samples/web/content/manual/multiple-peerconnections)
+[Multiple peerconnections](https://googlechrome.github.io/webrtc/samples/web/content/manual-test/multiple-peerconnections)
 
-[Multiple video streams](https://googlechrome.github.io/webrtc/samples/web/content/manual/multiple-video)
+[Multiple video devices](https://googlechrome.github.io/webrtc/samples/web/content/manual-test/multiple-video-devices)
 
-[Peer2peer](https://googlechrome.github.io/webrtc/samples/web/content/manual/peer2peer)
+[Multiple video streams](https://googlechrome.github.io/webrtc/samples/web/content/manual-test/multiple-video)
 
-[Peer2peer iframe](https://googlechrome.github.io/webrtc/samples/web/content/manual/peer2peer-iframe)
+[Peer2peer](https://googlechrome.github.io/webrtc/samples/web/content/manual-test/peer2peer)
 
-[Single audio stream](https://googlechrome.github.io/webrtc/samples/web/content/manual/single-audio)
+[Peer2peer iframe](https://googlechrome.github.io/webrtc/samples/web/content/manual-test/peer2peer-iframe)
 
-[Single video stream](https://googlechrome.github.io/webrtc/samples/web/content/manual/single-video)
+[Single audio stream](https://googlechrome.github.io/webrtc/samples/web/content/manual-test/single-audio)
 
-[Two video devices](https://googlechrome.github.io/webrtc/samples/web/content/manual/two-video-devices)
+[Single video stream](https://googlechrome.github.io/webrtc/samples/web/content/manual-test/single-video)
+
+
